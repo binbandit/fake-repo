@@ -233,6 +233,51 @@ To test PR functionality with this repository, use the following base and compar
 - The octopus merge branches demonstrate complex merge scenarios
 - Use the long branch name to test UI display limits in PR tools
 
+## Automated Test PR Creation
+
+The repository includes a `create-test-prs.sh` script that automatically creates test pull requests using GitHub CLI. This is useful for testing PR-related functionality in git tools.
+
+### Prerequisites
+
+1. Install GitHub CLI (gh): https://cli.github.com/
+2. Authenticate with GitHub: `gh auth login`
+3. Ensure all test branches are pushed to remote
+
+### Usage
+
+```bash
+# Run the script
+./create-test-prs.sh
+```
+
+The script will:
+1. Ask if you want to include stacked PRs (PRs targeting other feature branches)
+2. Ask if you want to create ALL possible PRs or a random subset
+3. Create the selected PRs with realistic titles and descriptions
+
+### Features
+
+- **Random PR Creation**: Creates a random subset of possible PRs by default
+- **Stacked PR Support**: Optional creation of stacked PRs for testing dependent changes
+- **Automatic Branch Pushing**: Pushes branches to remote if needed
+- **Conflict Detection**: Skips branches that are already merged
+- **Error Handling**: Continues if a PR already exists or fails
+
+### Available PR Scenarios
+
+The script can create PRs for:
+- Feature branches → main
+- Bugfix branches → main
+- Release branches → main
+- Stacked features (feature → feature)
+- Branches with merge conflicts
+- Unicode branch names
+- Long-running branches
+
+After running the script:
+- View all PRs: `gh pr list`
+- View PR details: `gh pr view <number>`
+
 ## Contributing
 
 This is a test repository designed to remain static for consistent testing. If you have suggestions for additional git scenarios that would be helpful for testing, please open an issue.
