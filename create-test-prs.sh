@@ -20,12 +20,26 @@ if ! gh auth status &> /dev/null; then
     exit 1
 fi
 
+# Function to ensure a label exists
+ensure_label_exists() {
+    local label_name=$1
+    local label_color=${2:-"0366d6"}  # Default to GitHub blue
+    local label_description=${3:-""}
+    
+    # Check if label exists
+    if ! gh label list --json name | jq -r '.[].name' | grep -q "^${label_name}$"; then
+        echo "Creating label '$label_name'..."
+        gh label create "$label_name" --color "$label_color" --description "$label_description" || echo "  Label may already exist"
+    fi
+}
+
 # Function to create a PR with error handling
 create_pr() {
     local source_branch=$1
     local target_branch=$2
     local title=$3
     local body=$4
+    local labels=$5  # Optional comma-separated labels
 
     echo "Creating PR: $source_branch → $target_branch"
 
@@ -40,15 +54,27 @@ create_pr() {
     git push -u origin "$source_branch" 2>/dev/null || echo "  Branch may already exist on remote"
 
     # Create the PR
-    gh pr create \
-        --head "$source_branch" \
-        --base "$target_branch" \
-        --title "$title" \
-        --body "$body" 2>/dev/null || echo "  ⚠️  PR may already exist or failed to create"
+    if [ -n "$labels" ]; then
+        gh pr create \
+            --head "$source_branch" \
+            --base "$target_branch" \
+            --title "$title" \
+            --body "$body" \
+            --label "$labels" 2>/dev/null || echo "  ⚠️  PR may already exist or failed to create"
+    else
+        gh pr create \
+            --head "$source_branch" \
+            --base "$target_branch" \
+            --title "$title" \
+            --body "$body" 2>/dev/null || echo "  ⚠️  PR may already exist or failed to create"
+    fi
 
     echo "  ✓ Done"
     echo ""
 }
+
+# Ensure the stacked label exists
+ensure_label_exists "stacked" "6f42c1" "Pull request that is stacked on another feature branch"
 
 # Ask user about stacked PRs
 echo -n "Do you want to include stacked PRs (feature branches targeting other feature branches)? [y/N]: "
@@ -56,7 +82,7 @@ read -r include_stacked
 echo ""
 
 # Define all possible PRs as arrays
-# Format: source_branch|target_branch|title|body
+# Format: source_branch|target_branch|title|body|labels
 declare -a POSSIBLE_PRS=()
 
 # Add stacked PRs if user wants them
@@ -69,7 +95,7 @@ if [[ "$include_stacked" =~ ^[Yy]$ ]]; then
 - Added logout endpoint
 - Added token validation
 
-**Stacked on:** feature/user-auth"
+**Stacked on:** feature/user-auth|stacked"
 
     "feature/database-models|feature/database|feat: Add database models for MongoDB|This PR adds Mongoose models for our MongoDB database.
 
@@ -78,7 +104,7 @@ if [[ "$include_stacked" =~ ^[Yy]$ ]]; then
 - Session model
 - Product model
 
-**Stacked on:** feature/database"
+**Stacked on:** feature/database|stacked"
 
     "feature/api-v2-routes|feature/api-v2|feat: Implement v2 API routes|This PR implements the new routes for API v2.
 
@@ -87,7 +113,7 @@ if [[ "$include_stacked" =~ ^[Yy]$ ]]; then
 - Added versioning middleware
 - New response format
 
-**Stacked on:** feature/api-v2"
+**Stacked on:** feature/api-v2|stacked"
     )
 fi
 
@@ -205,7 +231,7 @@ echo ""
 # Create the PRs
 created_count=0
 for ((i=0; i<num_to_create; i++)); do
-    IFS='|' read -r source_branch target_branch title body <<< "${shuffled[$i]}"
+    IFS='|' read -r source_branch target_branch title body labels <<< "${shuffled[$i]}"
 
     # Skip if the branch doesn't exist or is already merged
     if ! git show-ref --verify --quiet "refs/heads/$source_branch"; then
@@ -219,7 +245,7 @@ for ((i=0; i<num_to_create; i++)); do
         continue
     fi
 
-    create_pr "$source_branch" "$target_branch" "$title" "$body"
+    create_pr "$source_branch" "$target_branch" "$title" "$body" "$labels"
     ((created_count++))
 done
 
